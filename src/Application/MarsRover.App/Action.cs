@@ -1,10 +1,8 @@
-﻿using MarsRover.Common.Input;
+﻿using MarsRover.App.Operations;
 using MarsRover.Common.Logger;
+using MarsRover.Domain.Constant;
 using MarsRover.Services;
-using MarsRover.Services.ServiceCommand;
 using MarsRover.Services.ServicePlateau;
-using MarsRover.Services.ServicePosition;
-using MarsRover.Services.ServiceRover;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
@@ -14,113 +12,41 @@ namespace MarsRover.App
     {
         readonly ServiceProvider _appServices;
         readonly ILogger _logger;
+        readonly IPlateauService _plateauService;
+        readonly IPlateuOperations _plateuOperations;
+        readonly IRoverOperations _roverOperations;
+        readonly IMoveOperations _moveOperations;
+        readonly IFinalOperations _finalOperations;
+
         public Action() 
         {
             this._appServices = ApplicationServices.ConfigureServices();
             this._logger = new Logger();
+            this._plateauService = (IPlateauService)_appServices.GetService(typeof(IPlateauService));
+            this._plateuOperations = new PlateuOperations();
+            this._roverOperations = new RoverOperations();
+            this._moveOperations = new MoveOperations();
+            this._finalOperations = new FinalOperations();
         }
 
-        public void Run()
+        public void Run(int runVal)
         {
-            PlateuOperations();
-        }
-
-        private void PlateuOperations()
-        {
-            _logger.writeSeperator();
-            bool plateauCheck = false;
-            var plateauService = (IPlateauService)_appServices.GetService(typeof(IPlateauService));
-            do
+            if(runVal == Constant.NewPlateuOperations)
             {
-                var plateauSize = Input.getInputFromUser("Plato Alanı Giriniz");
-                plateauCheck = plateauService.CreatePlateu(plateauSize);
-                if (plateauCheck)
-                    _logger.writeSuccessLog("Plato Alanı Başarıyla Oluşturuldu.");
-                else
-                    _logger.writeErrorLog("Plato Alanı Oluşturulamadı!(Örnek Plato Formatı-X Y)");
-
-            } while (!plateauCheck);
-
-            _logger.writeSeperator();
-
-            RoverOperations(plateauService);
-        }
-
-        private void RoverOperations(IPlateauService plateauService)
-        {
-            bool isAnotherRover = true;
-            plateauService.Rovers.Clear();
-            do
-            {
-                var positionService = (IPositionService)_appServices.GetService(typeof(IPositionService));
-                var roverPosition = Input.getInputFromUser("Gezici Pozisyonu Giriniz");
-                while (!positionService.SetPositionServiceFromInput(roverPosition))
-                {
-                    _logger.writeErrorLog("Gezici Pozisyonu Atanamadı!(Örnek Gezici Pozisyonu Formatı: X Y N)");
-                    roverPosition = Input.getInputFromUser("Gezici Pozisyonu Giriniz");
-                }
-
-                var commandService = (ICommandService)_appServices.GetService(typeof(ICommandService));
-                var roverCommand = Input.getInputFromUser("Gezici Komutu Giriniz");
-                while (!commandService.CommandsParse(roverCommand))
-                {
-                    _logger.writeErrorLog("Gezici Komutu Atanamadı!");
-                    roverCommand = Input.getInputFromUser("Gezici Komutu Giriniz");
-                }
-
-                var roverService = (IRoverService)_appServices.GetService(typeof(IRoverService));
-                roverService.RoverPlateau = plateauService;
-                roverService.RoverPosition = positionService;
-                roverService.RoverCommands = commandService;
-
-                plateauService.AddRover(roverService);
-
-                _logger.writeSuccessLog("Gezici Başarıyla Tanımlandı.");
-                _logger.writeSeperator();
-
-                var continueRover = Input.getInputFromUser("Bir Adet Daha Gezici Tanımlamak İster misiniz?(Devam etmek için Y yazınız!)");
-                if (continueRover.ToUpper() != "Y")
-                    isAnotherRover = false;
-
-            } while (isAnotherRover);
-
-            MoveOperations(plateauService);
-        }
-
-        private void MoveOperations(IPlateauService plateauService)
-        {
-            _logger.writeLog("");
-            _logger.writeLog("Expected Output: ");
-            foreach (IRoverService rover in plateauService.Rovers)
-                _logger.writeLog(rover.Process(rover));
-
-            FinalOperations(plateauService);
-        }
-
-        private void FinalOperations(IPlateauService plateauService)
-        {
-            _logger.writeSeperator();
-            _logger.writeLog("");
-            _logger.writeLog("Aşağıdaki adımlar ile devam edebilirsiniz.");
-            _logger.writeLog("1-Aynı plato ile tekrar gezici tanımlamak");
-            _logger.writeLog("2-Farklı plato ile tekrar gezici tanımlamak");
-            _logger.writeLog("3-Çıkış");
-
-            try
-            {
-                int finalChoose = Convert.ToInt32(Input.getInputFromUser("Seçiminiz"));
-
-                if (finalChoose == 2)
-                    PlateuOperations();
-                else if (finalChoose == 1)
-                    RoverOperations(plateauService);
-                else
-                    Environment.Exit(0);
+                _plateuOperations.Run(_logger, _appServices, _plateauService);
+                _roverOperations.Run(_logger, _appServices, _plateauService);
+                _moveOperations.Run(_logger, _plateauService);
             }
-            catch
+            else if(runVal == Constant.SamePlateuOperations)
             {
+                _roverOperations.Run(_logger, _appServices, _plateauService);
+                _moveOperations.Run(_logger, _plateauService);
+            }
+            else
                 Environment.Exit(0);
-            }           
+
+            int finalChoose = _finalOperations.Run(_logger, _plateauService);
+            Run(finalChoose);
         }
 
         public void Dispose()

@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Runtime.Caching" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Common\MarsRover.Common\MarsRover.Common.csproj" />
     <ProjectReference Include="..\..\Services\MarsRover.Services\MarsRover.Services.csproj" />
   </ItemGroup>
